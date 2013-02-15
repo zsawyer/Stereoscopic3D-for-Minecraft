@@ -21,7 +21,12 @@
  */
 package zsawyer.mods.stereoscopic3d;
 
-public enum Eye {
-	LEFT,
-	RIGHT
+import org.lwjgl.opengl.PixelFormat;
+
+public aspect MinecraftHook {
+	pointcut createDisplay(PixelFormat f) : call(void org.lwjgl.opengl.Display.create(PixelFormat)) && args(f);
+	
+	void around(PixelFormat f) : createDisplay(f) {			
+		proceed(f.withStencilBits(8));								
+	}	
 }
