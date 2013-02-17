@@ -31,7 +31,6 @@ import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.EntityRenderer;
-import net.minecraftforge.client.DisplaySettings;
 import net.minecraftforge.client.event.UpdateChunksEvent;
 import net.minecraftforge.client.event.UpdateFogColorEvent;
 import net.minecraftforge.event.ForgeSubscribe;
@@ -46,7 +45,6 @@ import org.lwjgl.util.glu.GLU;
 
 import zsawyer.mods.stereoscopic3d.DebugUtil;
 import zsawyer.mods.stereoscopic3d.MinecraftCopy;
-import zsawyer.mods.stereoscopic3d.Stereoscopic3D;
 import zsawyer.mods.stereoscopic3d.Stereoscopic3DConstants.Eye;
 import cpw.mods.fml.client.FMLClientHandler;
 import cpw.mods.fml.common.ITickHandler;
@@ -109,8 +107,6 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
 
     private void loadDisplaySettings()
     {
-        DisplaySettings.instance().setStencilBits(8);
-
         try
         {
             DisplayMode mode = Display.getDisplayMode();

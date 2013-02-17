@@ -1,0 +1,201 @@
+From 0146a1e59cd79ebdb76547473fd6ee3b4086e393 Mon Sep 17 00:00:00 2001
+From: zsawyer <zsawyer@sourceforge.net>
+Date: Sun, 17 Feb 2013 02:44:38 +0100
+Subject: [PATCH] + added PerspectiveSetupEvent (Before and After) to hook
+ near where camera position is changed (left and right eye
+ position) for rendering from different perspectives (i.e.
+ stereoscopic rendering) + added ScreenResizeEvent to
+ trigger after the gui has been resized, used when such a
+ resize requires recalculating + added cancelable update
+ events UpdateChunksEvent and UpdateFogColorEvent these can
+ prevent updates when a second (or multiple) rendering run
+ is done (i.e. second frame for stereoscopic image) *
+ modified ForgeHooksClient to use these new cancelable
+ events (hides the logical negation) - patch files of
+ Minecraft.java and EntityRenderer.java are pending for
+ follow up commit
+
+---
+ .../minecraftforge/client/ForgeHooksClient.java    |   12 ++++
+ .../client/event/PerspectiveSetupEvent.java        |   56 ++++++++++++++++++++
+ .../client/event/ScreenResizeEvent.java            |   25 +++++++++
+ .../client/event/UpdateChunksEvent.java            |   18 ++++++
+ .../client/event/UpdateFogColorEvent.java          |   18 ++++++
+ 5 files changed, 129 insertions(+), 0 deletions(-)
+ create mode 100644 client/net/minecraftforge/client/event/PerspectiveSetupEvent.java
+ create mode 100644 client/net/minecraftforge/client/event/ScreenResizeEvent.java
+ create mode 100644 client/net/minecraftforge/client/event/UpdateChunksEvent.java
+ create mode 100644 client/net/minecraftforge/client/event/UpdateFogColorEvent.java
+
+diff --git a/client/net/minecraftforge/client/ForgeHooksClient.java b/client/net/minecraftforge/client/ForgeHooksClient.java
+index 053e62c..67e41a7 100644
+--- a/client/net/minecraftforge/client/ForgeHooksClient.java
++++ b/client/net/minecraftforge/client/ForgeHooksClient.java
+@@ -27,6 +27,8 @@ import net.minecraft.client.renderer.Tessellator;
+ import net.minecraftforge.client.event.DrawBlockHighlightEvent;
+ import net.minecraftforge.client.event.RenderWorldLastEvent;
+ import net.minecraftforge.client.event.TextureLoadEvent;
++import net.minecraftforge.client.event.UpdateChunksEvent;
++import net.minecraftforge.client.event.UpdateFogColorEvent;
+ import net.minecraftforge.common.IArmorTextureProvider;
+ import net.minecraftforge.common.MinecraftForge;
+ import static net.minecraftforge.client.IItemRenderer.ItemRenderType.*;
+@@ -418,4 +420,14 @@ public class ForgeHooksClient
+     {
+         renderPass = pass;
+     }
++    
++    public static boolean updateChunks()
++    {
++        return !MinecraftForge.EVENT_BUS.post(new UpdateChunksEvent());
++    }
++
++    public static boolean updateFogColor()
++    {
++        return !MinecraftForge.EVENT_BUS.post(new UpdateFogColorEvent());
++    } 
+ }
+diff --git a/client/net/minecraftforge/client/event/PerspectiveSetupEvent.java b/client/net/minecraftforge/client/event/PerspectiveSetupEvent.java
+new file mode 100644
+index 0000000..047d24b
+--- /dev/null
++++ b/client/net/minecraftforge/client/event/PerspectiveSetupEvent.java
+@@ -0,0 +1,56 @@
++/*
++ * This software is provided under the terms of the Minecraft Forge Public
++ * License v1.0.
++ */
++
++package net.minecraftforge.client.event;
++
++import net.minecraftforge.client.event.PerspectiveSetupEvent.RenderTarget;
++import net.minecraftforge.event.Event;
++
++/**
++ * 
++ * @author zsawyer
++ */
++public abstract class PerspectiveSetupEvent extends Event {
++
++    public enum RenderTarget {
++        WORLD, HAND
++    }
++
++    public int viewCounter;
++    public float xCorrectionFactor;
++    public RenderTarget target;
++
++    public PerspectiveSetupEvent(RenderTarget target, int viewCounter, float xCorrectionFactor)
++    {
++        super();
++        this.viewCounter = viewCounter;
++        this.xCorrectionFactor = xCorrectionFactor;
++        this.target = target;
++    }
++
++    /**
++     * 
++     * @author zsawyer
++     */
++    public static class Before extends PerspectiveSetupEvent {
++
++        public Before(RenderTarget target, int viewCounter, float xCorrectionFactor)
++        {
++            super(target, viewCounter, xCorrectionFactor);
++        }
++    }
++
++    /**
++     * 
++     * @author zsawyer
++     */
++    public static class After extends PerspectiveSetupEvent {
++
++        public After(RenderTarget target, int viewCounter, float xCorrectionFactor)
++        {
++            super(target, viewCounter, xCorrectionFactor);
++        }
++    }
++}
+diff --git a/client/net/minecraftforge/client/event/ScreenResizeEvent.java b/client/net/minecraftforge/client/event/ScreenResizeEvent.java
+new file mode 100644
+index 0000000..b34cc03
+--- /dev/null
++++ b/client/net/minecraftforge/client/event/ScreenResizeEvent.java
+@@ -0,0 +1,25 @@
++/*
++ * This software is provided under the terms of the Minecraft Forge Public
++ * License v1.0.
++ */
++
++package net.minecraftforge.client.event;
++
++import net.minecraftforge.event.Event;
++
++/**
++ * 
++ * @author zsawyer
++ * 
++ */
++public class ScreenResizeEvent extends Event {
++    public final int width;
++    public final int height;
++
++    public ScreenResizeEvent(int width, int height)
++    {
++        super();
++        this.width = width;
++        this.height = height;
++    }    
++}
+diff --git a/client/net/minecraftforge/client/event/UpdateChunksEvent.java b/client/net/minecraftforge/client/event/UpdateChunksEvent.java
+new file mode 100644
+index 0000000..8367117
+--- /dev/null
++++ b/client/net/minecraftforge/client/event/UpdateChunksEvent.java
+@@ -0,0 +1,18 @@
++/*
++ * This software is provided under the terms of the Minecraft Forge Public
++ * License v1.0.
++ */
++
++package net.minecraftforge.client.event;
++
++import net.minecraftforge.event.Cancelable;
++import net.minecraftforge.event.Event;
++
++/**
++ * 
++ * @author zsawyer
++ */
++@Cancelable
++public class UpdateChunksEvent extends Event {
++
++}
+diff --git a/client/net/minecraftforge/client/event/UpdateFogColorEvent.java b/client/net/minecraftforge/client/event/UpdateFogColorEvent.java
+new file mode 100644
+index 0000000..41faace
+--- /dev/null
++++ b/client/net/minecraftforge/client/event/UpdateFogColorEvent.java
+@@ -0,0 +1,18 @@
++/*
++ * This software is provided under the terms of the Minecraft Forge Public
++ * License v1.0.
++ */
++
++package net.minecraftforge.client.event;
++
++import net.minecraftforge.event.Cancelable;
++import net.minecraftforge.event.Event;
++
++/**
++ * 
++ * @author zsawyer
++ */
++@Cancelable
++public class UpdateFogColorEvent extends Event {
++
++}
+-- 
+1.7.7.GIT
+
