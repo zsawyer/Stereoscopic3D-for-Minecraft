@@ -19,17 +19,17 @@
  along with Stereoscopic3D-for-Minecraft.  If not, see <http://www.gnu.org/licenses/>.
 
  */
- package zsawyer.mods.stereoscopic3d;
 
-import org.lwjgl.opengl.Display;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.util.glu.GLU;
+package zsawyer.mods.stereoscopic3d;
 
-import zsawyer.mods.stereoscopic3d.renderers.Interlaced3DRenderer;
-import net.minecraft.client.renderer.EntityRenderer;
-import net.minecraftforge.client.ForgeHooksClient;
-import net.minecraftforge.client.MinecraftForgeClient;
-import net.minecraftforge.common.MinecraftForge;
+import java.util.Arrays;
+
+import net.minecraftforge.common.Configuration;
+import net.minecraftforge.common.Property;
+import zsawyer.mods.stereoscopic3d.Stereoscopic3DConstants.ConfigKeys;
+import zsawyer.mods.stereoscopic3d.Stereoscopic3DConstants.Format;
+import zsawyer.mods.stereoscopic3d.renderers.StereoscopicRenderer;
+import zsawyer.mods.stereoscopic3d.renderers.StereoscopicRendererFactory;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.Mod.Init;
@@ -37,7 +37,6 @@ import cpw.mods.fml.common.Mod.Instance;
 import cpw.mods.fml.common.Mod.PostInit;
 import cpw.mods.fml.common.Mod.PreInit;
 import cpw.mods.fml.common.ObfuscationReflectionHelper;
-import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
@@ -45,88 +44,61 @@ import cpw.mods.fml.common.network.NetworkMod;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-@Mod(modid = "Stereoscopic3D", name = "Stereoscopic3D Renderer Addon", version = "0.0.1")
+@Mod(modid = "Stereoscopic3D", name = "Stereoscopic3D Renderer", version = "0.0.2")
 @NetworkMod(clientSideRequired = true, serverSideRequired = false)
 public class Stereoscopic3D {
 
-	public Eye currentEye = Eye.LEFT;
+    // The instance of your mod that Forge uses.
+    @Instance("Stereoscopic3D")
+    public static Stereoscopic3D instance;
 
-	// The instance of your mod that Forge uses.
-	@Instance("Stereoscopic3D")
-	public static Stereoscopic3D instance;
+    // private Stereoscopic3DRenderer renderer;
+    public StereoscopicRenderer renderer;
 
-	// private Stereoscopic3DRenderer renderer;
-	private Interlaced3DRenderer renderer;
+    private Property rendererFormat;
 
-	@PreInit
-	public void preInit(FMLPreInitializationEvent event) {
-		if (FMLCommonHandler.instance().getSide().isServer()
-				&& ObfuscationReflectionHelper.obfuscation)
-			throw new RuntimeException(
-					"Stereoscopic3D should not be installed on a server!");
-	}
+    private Property swapSides;
 
-	@SideOnly(Side.CLIENT)
-	@Init
-	public void load(FMLInitializationEvent event) {
-		renderer = new Interlaced3DRenderer();
-		renderer.init();
+    @PreInit
+    public void preInit(FMLPreInitializationEvent event)
+    {
+        if (FMLCommonHandler.instance().getSide().isServer() && ObfuscationReflectionHelper.obfuscation)
+            throw new RuntimeException("Stereoscopic3D should not be installed on a server!");
 
-		// MinecraftForge.EVENT_BUS.register(new Interlaced3DRenderer());
-	}
+        initConfig(event);
+        initRenderer();
+    }
 
-	@SideOnly(Side.CLIENT)
-	@PostInit
-	public void postInit(FMLPostInitializationEvent event) {
-		// Stub Method
-	}
+    private void initConfig(FMLPreInitializationEvent event)
+    {
+        Configuration config = new Configuration(event.getSuggestedConfigurationFile());
 
-	public void prepareFrame() {
-		renderer.prepareFrame(currentEye);
+        config.load();
 
-	}
+        rendererFormat = config.get(Configuration.CATEGORY_GENERAL, ConfigKeys.format.toString(), Format.Interlaced.toString(),
+                "sterescopic 3D output format to be used" + System.lineSeparator() + "available values: " + Arrays.toString(Format.values()));
+        swapSides = config.get(Configuration.CATEGORY_GENERAL, ConfigKeys.swapSides.toString(), false, "whether to swap the left and right image");
 
-	public void resize() {
-		renderer.init();
-	}
+        config.save();
+    }
 
-	public void moveCamera() {
-		GL11.glTranslatef((float) (-(currentEye.ordinal() * 2 - 1)) * 0.07F,
-				0.0F, 0.0F);
-	}
+    private void initRenderer()
+    {
+        renderer = StereoscopicRendererFactory.getRenderer(rendererFormat);
+        renderer.init(swapSides.getBoolean(false));
+    }
 
-	public void revertCamera() {
-		GL11.glTranslatef((float) (currentEye.ordinal() * 2 - 1) * 0.1F, 0.0F,
-				0.0F);
-	}
+    @SideOnly(Side.CLIENT)
+    @Init
+    public void load(FMLInitializationEvent event)
+    {
+        renderer.engage();
+    }
 
-	public static void checkGLError() {
-		int glError = GL11.glGetError();
-		if (glError != GL11.GL_NO_ERROR) {
-			throw new RuntimeException("GL Error: "
-					+ GLU.gluErrorString(glError) + "(" + glError + ")");
-		}
-	}
-
-	public void drawStereoscopicSquare() {
-		renderer.drawStereoscopicSquare(currentEye);
-	}
-
-	public void debugSwapBuffers(Eye eye) {
-		if (eye == currentEye) {
-			try {
-				GL11.glFlush();
-				Display.swapBuffers();
-				Thread.sleep(1000);
-				Display.swapBuffers();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-	}
-
-	public void cleanUpAfterFrames() {
-		renderer.cleanUpAfterFrames();		
-	}
+    @SideOnly(Side.CLIENT)
+    @PostInit
+    public void postInit(FMLPostInitializationEvent event)
+    {
+        // Stub Method
+    }
 }

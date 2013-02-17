@@ -19,9 +19,27 @@
  along with Stereoscopic3D-for-Minecraft.  If not, see <http://www.gnu.org/licenses/>.
 
  */
-package zsawyer.mods.stereoscopic3d;
 
-public enum Eye {
-	LEFT,
-	RIGHT
+package zsawyer.mods.stereoscopic3d.renderers;
+
+/**
+ * 
+ * @author zsawyer
+ */
+public class SideBySideRenderer extends StereoscopicRenderer {
+
+    @Override
+    public void init()
+    {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public void resize()
+    {
+        // TODO Auto-generated method stub
+        
+    }
+
 }
