@@ -20,36 +20,34 @@
 
  */
 
-package zsawyer.mods.stereoscopic3d;
+package zsawyer.mods.stereoscopic3d.renderers;
 
 /**
  * 
  * @author zsawyer
  */
-public class Stereoscopic3DConstants {
-
-    public enum Eye {
-        LEFT, RIGHT
+public class TopBottomRenderer extends SideBySideRenderer {
+    @Override
+    public float zoomFactorX()
+    {
+        return 1f;
     }
 
-    /**
-     * stereoscopic formats available
-     * 
-     * @author zsawyer
-     */
-    public enum Format {
-        Interlaced, SideBySide, TopBottom;
-        // Checkerboard,
-        // Anaglyph,
-        // QuadBuffer
+    @Override
+    public float zoomFactorY()
+    {
+        return 0.5f;
     }
 
-    /**
-     * keys used in the config file
-     * 
-     * @author zsawyer
-     */
-    public enum ConfigKeys {
-        format, swapSides
+    @Override
+    public float secondImageStartingPositionX()
+    {
+        return 0;
+    }
+
+    @Override
+    public float secondImageStartingPositionY()
+    {
+        return getLastHeight() / 2;
     }
 }

@@ -76,10 +76,16 @@ public class Stereoscopic3D {
         config.load();
 
         rendererFormat = config.get(Configuration.CATEGORY_GENERAL, ConfigKeys.format.toString(), Format.Interlaced.toString(),
-                "sterescopic 3D output format to be used" + System.lineSeparator() + "available values: " + Arrays.toString(Format.values()));
-        swapSides = config.get(Configuration.CATEGORY_GENERAL, ConfigKeys.swapSides.toString(), false, "whether to swap the left and right image");
+                configComment("sterescopic 3D output format to be used", Format.values()));
+        swapSides = config.get(Configuration.CATEGORY_GENERAL, ConfigKeys.swapSides.toString(), false,
+                configComment("whether to swap the left and right image", new Boolean[] { true, false }));
 
         config.save();
+    }
+
+    private static String configComment(String comment, Object[] availableValues)
+    {
+        return comment + System.lineSeparator() + "available values: " + Arrays.toString(availableValues);
     }
 
     private void initRenderer()

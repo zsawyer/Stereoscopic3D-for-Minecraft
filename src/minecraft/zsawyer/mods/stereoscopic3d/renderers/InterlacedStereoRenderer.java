@@ -25,28 +25,19 @@ package zsawyer.mods.stereoscopic3d.renderers;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.EntityRenderer;
-import net.minecraftforge.client.event.UpdateChunksEvent;
-import net.minecraftforge.client.event.UpdateFogColorEvent;
-import net.minecraftforge.event.ForgeSubscribe;
 
 import org.lwjgl.LWJGLException;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.DisplayMode;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.PixelFormat;
-import org.lwjgl.util.glu.GLU;
 
 import zsawyer.mods.stereoscopic3d.DebugUtil;
 import zsawyer.mods.stereoscopic3d.MinecraftCopy;
 import zsawyer.mods.stereoscopic3d.Stereoscopic3DConstants.Eye;
-import cpw.mods.fml.client.FMLClientHandler;
 import cpw.mods.fml.common.ITickHandler;
 import cpw.mods.fml.common.TickType;
 import cpw.mods.fml.common.registry.TickRegistry;
@@ -55,18 +46,11 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 public class InterlacedStereoRenderer extends StereoscopicRenderer implements ITickHandler {
 
-    private final static Minecraft mc = FMLClientHandler.instance().getClient();
-
-    /**
-     * list of GL11.[...]-constants (1st parameter) which apply for
-     * glEnable/glDisable and their previous enabled-state (2nd Parameter)
-     */
-    private Map<Integer, Boolean> previousState;
-    private int[] enablesToCheck = new int[] { GL11.GL_TEXTURE_2D, GL11.GL_ALPHA_TEST, GL11.GL_COLOR_MATERIAL, GL11.GL_BLEND, GL11.GL_DEPTH_TEST,
-            GL12.GL_RESCALE_NORMAL, GL11.GL_CULL_FACE, GL11.GL_COLOR_MATERIAL, GL11.GL_LIGHTING, GL11.GL_COLOR_LOGIC_OP, GL11.GL_FOG,
-            GL11.GL_POLYGON_OFFSET_FILL, GL11.GL_LIGHT0, GL11.GL_LIGHT1 };
-
     private boolean reinitPending = false;
+
+    private final int stencilTestWidth = 1;
+    private final int stencilTestHeight = 1;
+    private final IntBuffer stencilMap = ByteBuffer.allocateDirect(stencilTestWidth * stencilTestHeight * 4).asIntBuffer();
 
     private void prepareFrame(Eye eye)
     {
@@ -135,8 +119,7 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         }
     }
 
-    @SideOnly(Side.CLIENT)
-    public synchronized void reinit()
+    private synchronized void reinit()
     {
         reinitPending = true;
 
@@ -164,16 +147,6 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         }
     }
 
-    private void savePreviousState()
-    {
-        previousState = new HashMap<Integer, Boolean>();
-        for (int enabler : enablesToCheck)
-        {
-            previousState.put(enabler, GL11.glIsEnabled(enabler));
-            DebugUtil.checkGLError();
-        }
-    }
-
     private void initStencilState()
     {
         for (int enabler : enablesToCheck)
@@ -181,18 +154,6 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
             GL11.glDisable(enabler);
             DebugUtil.checkGLError();
         }
-    }
-
-    private void setupView(int width, int height)
-    {
-        GL11.glViewport(0, 0, width, height);
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glLoadIdentity();
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glLoadIdentity();
-        GLU.gluOrtho2D(0f, width, 0f, height);
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glLoadIdentity();
     }
 
     private void prepareStencilBuffer()
@@ -230,18 +191,7 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         DebugUtil.checkGLError();
     }
 
-    private void recoverPreviousState()
-    {
-        for (int enabler : enablesToCheck)
-        {
-            if (previousState.get(enabler))
-            {
-                GL11.glEnable(enabler);
-                DebugUtil.checkGLError();
-            }
-        }
-    }
-
+    @SideOnly(Side.CLIENT)
     public void resize()
     {
         reinit();
@@ -253,30 +203,29 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
     @Override
     public void tickStart(EnumSet<TickType> type, Object... tickData)
     {
-        if (reinitPending || isReinitRequired())
+        if (engaged)
         {
-            reinit();
-        }
-
-        if (type.contains(TickType.RENDER))
-        {
-            if (tickData.length == 1 && tickData[0] instanceof Float)
+            if (this.mc.theWorld != null && !this.mc.skipRenderWorld)
             {
-                prepareFrame(Eye.LEFT);
+                if (reinitPending || isReinitRequired())
+                {
+                    reinit();
+                }
+
+                if (tickData.length == 1 && tickData[0] instanceof Float)
+                {
+                    prepareFrame(Eye.LEFT);
+                }
             }
         }
-
     }
 
     private boolean isReinitRequired()
     {
-        int stencilWidth = 1;
-        int stencilHeight = 1;
-        IntBuffer stencilMap = ByteBuffer.allocateDirect(stencilWidth * stencilHeight * 4).asIntBuffer();
         stencilMap.rewind();
 
         GL11.glPixelStorei(GL11.GL_PACK_SWAP_BYTES, GL11.GL_TRUE);
-        GL11.glReadPixels(0, 0, stencilWidth, stencilHeight, GL11.GL_STENCIL_INDEX, GL11.GL_INT, stencilMap);
+        GL11.glReadPixels(0, 0, stencilTestWidth, stencilTestHeight, GL11.GL_STENCIL_INDEX, GL11.GL_INT, stencilMap);
         DebugUtil.checkGLError();
 
         return stencilMap.get(0) != 1;
@@ -288,9 +237,9 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
     @Override
     public void tickEnd(EnumSet<TickType> type, Object... tickData)
     {
-        if (this.mc.theWorld != null && !this.mc.skipRenderWorld)
+        if (engaged)
         {
-            if (type.contains(TickType.RENDER))
+            if (this.mc.theWorld != null && !this.mc.skipRenderWorld)
             {
                 if (tickData.length == 1 && tickData[0] instanceof Float)
                 {
@@ -300,9 +249,9 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
                     mc.entityRenderer.updateCameraAndRender((Float) tickData[0]);
                 }
             }
-        }
 
-        cleanUpAfterFrames();
+            cleanUpAfterFrames();
+        }
     }
 
     @Override
@@ -317,23 +266,12 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         return this.getClass().getSimpleName();
     }
 
-    public void cleanUpAfterFrames()
+    private void cleanUpAfterFrames()
     {
         GL11.glStencilFunc(GL11.GL_ALWAYS, 1, 0x01);
     }
 
-    @ForgeSubscribe
-    public void onUpdateFogColor(UpdateFogColorEvent event)
-    {
-        cancelIfNotFirstEye(event);
-    }
-
-    @ForgeSubscribe
-    public void onUpdateFogColor(UpdateChunksEvent event)
-    {
-        cancelIfNotFirstEye(event);
-    }
-
+    @SideOnly(Side.CLIENT)
     @Override
     public void engage()
     {

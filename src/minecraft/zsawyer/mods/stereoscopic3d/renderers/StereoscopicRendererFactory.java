@@ -39,6 +39,8 @@ public class StereoscopicRendererFactory {
             return new InterlacedStereoRenderer();
         case SideBySide:
             return new SideBySideRenderer();
+        case TopBottom:
+            return new TopBottomRenderer();
         default:
             break;
         }
