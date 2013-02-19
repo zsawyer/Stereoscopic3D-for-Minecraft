@@ -28,18 +28,22 @@ package zsawyer.mods.stereoscopic3d;
  */
 public class Stereoscopic3DConstants {
 
+    /**
+     * enumeration for identifying a frame's stereoscopic context
+     * 
+     * @author zsawyer
+     */
     public enum Eye {
         LEFT, RIGHT
     }
 
     /**
-     * stereoscopic formats available
+     * available stereoscopic formats
      * 
      * @author zsawyer
      */
     public enum Format {
-        Interlaced, SideBySide, TopBottom;
-        // Checkerboard,
+        Interlaced, SideBySide, TopBottom, Checkerboard;
         // Anaglyph,
         // QuadBuffer
     }

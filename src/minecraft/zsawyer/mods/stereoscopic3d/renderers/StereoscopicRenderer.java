@@ -140,16 +140,30 @@ public abstract class StereoscopicRenderer {
         }
     }
 
-    protected void setupView(int width, int height)
+    public void setupView(int width, int height)
     {
-        GL11.glViewport(0, 0, width, height);
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glLoadIdentity();
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glLoadIdentity();
-        GLU.gluOrtho2D(0f, width, 0f, height);
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glLoadIdentity();
+        setupView(0, 0, width, height);
+    }
+
+    public void setupView(int x, int y, int width, int height)
+    {
+        setupView(x, y, width, height, true);
+    }
+
+    public void setupView(int x, int y, int width, int height, boolean eager)
+    {
+        GL11.glViewport(x, y, width, height);
+
+        if (eager)
+        {
+            GL11.glMatrixMode(GL11.GL_MODELVIEW);
+            GL11.glLoadIdentity();
+            GL11.glMatrixMode(GL11.GL_PROJECTION);
+            GL11.glLoadIdentity();
+            GLU.gluOrtho2D(0, width, 0, height);
+            GL11.glMatrixMode(GL11.GL_MODELVIEW);
+            GL11.glLoadIdentity();
+        }
     }
 
     protected void savePreviousState()
@@ -172,5 +186,10 @@ public abstract class StereoscopicRenderer {
                 DebugUtil.checkGLError();
             }
         }
+    }
+
+    protected boolean isPlaying()
+    {
+        return (this.mc.theWorld != null && !this.mc.skipRenderWorld) && this.mc.currentScreen == null;
     }
 }

@@ -23,6 +23,7 @@
 package zsawyer.mods.stereoscopic3d;
 
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 import net.minecraftforge.common.Configuration;
 import net.minecraftforge.common.Property;
@@ -44,9 +45,15 @@ import cpw.mods.fml.common.network.NetworkMod;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-@Mod(modid = "Stereoscopic3D", name = "Stereoscopic3D Renderer", version = "0.0.2")
+/**
+ * 
+ * @author zsawyer
+ */
+@Mod(modid = "Stereoscopic3D", name = "Stereoscopic3D Renderer", version = "1.0.0")
 @NetworkMod(clientSideRequired = true, serverSideRequired = false)
 public class Stereoscopic3D {
+
+    public static Logger LOG;
 
     // The instance of your mod that Forge uses.
     @Instance("Stereoscopic3D")
@@ -55,13 +62,14 @@ public class Stereoscopic3D {
     // private Stereoscopic3DRenderer renderer;
     public StereoscopicRenderer renderer;
 
-    private Property rendererFormat;
-
-    private Property swapSides;
+    public Property rendererFormat;
+    private boolean swapSides;
 
     @PreInit
     public void preInit(FMLPreInitializationEvent event)
     {
+        LOG = event.getModLog();
+
         if (FMLCommonHandler.instance().getSide().isServer() && ObfuscationReflectionHelper.obfuscation)
             throw new RuntimeException("Stereoscopic3D should not be installed on a server!");
 
@@ -78,7 +86,7 @@ public class Stereoscopic3D {
         rendererFormat = config.get(Configuration.CATEGORY_GENERAL, ConfigKeys.format.toString(), Format.Interlaced.toString(),
                 configComment("sterescopic 3D output format to be used", Format.values()));
         swapSides = config.get(Configuration.CATEGORY_GENERAL, ConfigKeys.swapSides.toString(), false,
-                configComment("whether to swap the left and right image", new Boolean[] { true, false }));
+                configComment("whether to swap the left and right image", new Boolean[] { true, false })).getBoolean(false);
 
         config.save();
     }
@@ -91,7 +99,7 @@ public class Stereoscopic3D {
     private void initRenderer()
     {
         renderer = StereoscopicRendererFactory.getRenderer(rendererFormat);
-        renderer.init(swapSides.getBoolean(false));
+        renderer.init(swapSides);
     }
 
     @SideOnly(Side.CLIENT)
@@ -105,6 +113,17 @@ public class Stereoscopic3D {
     @PostInit
     public void postInit(FMLPostInitializationEvent event)
     {
-        // Stub Method
     }
+
+    public boolean getSwapSides()
+    {
+        return swapSides;
+    }
+
+    public void setSwapSides(boolean swapSides)
+    {
+        this.swapSides = swapSides;
+        renderer.swapSides = swapSides;
+    }
+
 }

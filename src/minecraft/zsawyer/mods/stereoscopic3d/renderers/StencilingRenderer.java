@@ -24,7 +24,6 @@ package zsawyer.mods.stereoscopic3d.renderers;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.util.EnumSet;
 
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.EntityRenderer;
@@ -38,58 +37,30 @@ import org.lwjgl.opengl.PixelFormat;
 import zsawyer.mods.stereoscopic3d.DebugUtil;
 import zsawyer.mods.stereoscopic3d.MinecraftCopy;
 import zsawyer.mods.stereoscopic3d.Stereoscopic3DConstants.Eye;
-import cpw.mods.fml.common.ITickHandler;
-import cpw.mods.fml.common.TickType;
-import cpw.mods.fml.common.registry.TickRegistry;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
-public class InterlacedStereoRenderer extends StereoscopicRenderer implements ITickHandler {
+/**
+ * 
+ * @author zsawyer
+ */
+public abstract class StencilingRenderer extends TickBasedRenderer {
 
-    private boolean reinitPending = false;
+    boolean reinitPending = false;
 
     private final int stencilTestWidth = 1;
     private final int stencilTestHeight = 1;
     private final IntBuffer stencilMap = ByteBuffer.allocateDirect(stencilTestWidth * stencilTestHeight * 4).asIntBuffer();
 
-    private void prepareFrame(Eye eye)
-    {
-        currentEye = eye;
-
-        if (this.mc.theWorld != null && !this.mc.skipRenderWorld)
-        {
-            if (eye == Eye.LEFT ^ swapSides)
-            {
-                // left image
-                GL11.glDrawBuffer(GL11.GL_BACK);
-                GL11.glStencilFunc(GL11.GL_EQUAL, 1, 0x01);
-                // Clear the screen and depth buffer
-                GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_COLOR_BUFFER_BIT);
-            }
-            else if (eye == Eye.RIGHT ^ swapSides)
-            {
-                // right image
-                GL11.glDrawBuffer(GL11.GL_BACK);
-                GL11.glStencilFunc(GL11.GL_NOTEQUAL, 1, 0x01);
-                // Clear the depth buffer
-                GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
-            }
-        }
-        else
-        {
-            GL11.glStencilFunc(GL11.GL_ALWAYS, 1, 0x01);
-        }
-    }
-
     @SideOnly(Side.CLIENT)
     @Override
     public void init()
     {
-        loadDisplaySettings();
+        createNewDisplay();
         reinit();
     }
 
-    private void loadDisplaySettings()
+    protected void createNewDisplay()
     {
         try
         {
@@ -119,7 +90,7 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         }
     }
 
-    private synchronized void reinit()
+    protected synchronized void reinit()
     {
         reinitPending = true;
 
@@ -147,7 +118,7 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         }
     }
 
-    private void initStencilState()
+    protected void initStencilState()
     {
         for (int enabler : enablesToCheck)
         {
@@ -156,7 +127,7 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         }
     }
 
-    private void prepareStencilBuffer()
+    protected void prepareStencilBuffer()
     {
         GL11.glDrawBuffer(GL11.GL_BACK);
         GL11.glEnable(GL11.GL_STENCIL_TEST);
@@ -170,26 +141,7 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         GL11.glStencilFunc(GL11.GL_ALWAYS, 1, 0x01);
     }
 
-    private void drawStencilPattern(int width, int height)
-    {
-        GL11.glColor4f(1, 1, 1, 0);
-        // draw lines (actually using quads)
-        // for anticipating aliasing and drawing pixels at precise locations I
-        // find QUADS are easier to figure out than LINES (lines would require
-        // an offset of +0.5)
-        GL11.glBegin(GL11.GL_QUADS);
-        {
-            for (int gliY = 0; gliY <= height; gliY += 2)
-            {
-                GL11.glVertex2f(0, gliY);
-                GL11.glVertex2f(0, gliY + 1);
-                GL11.glVertex2f(width, gliY + 1);
-                GL11.glVertex2f(width, gliY);
-            }
-        }
-        GL11.glEnd();
-        DebugUtil.checkGLError();
-    }
+    protected abstract void drawStencilPattern(int width, int height);
 
     @SideOnly(Side.CLIENT)
     public void resize()
@@ -197,30 +149,7 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         reinit();
     }
 
-    /*
-     * render on the first eye
-     */
-    @Override
-    public void tickStart(EnumSet<TickType> type, Object... tickData)
-    {
-        if (engaged)
-        {
-            if (this.mc.theWorld != null && !this.mc.skipRenderWorld)
-            {
-                if (reinitPending || isReinitRequired())
-                {
-                    reinit();
-                }
-
-                if (tickData.length == 1 && tickData[0] instanceof Float)
-                {
-                    prepareFrame(Eye.LEFT);
-                }
-            }
-        }
-    }
-
-    private boolean isReinitRequired()
+    protected boolean isReinitRequired()
     {
         stencilMap.rewind();
 
@@ -231,51 +160,128 @@ public class InterlacedStereoRenderer extends StereoscopicRenderer implements IT
         return stencilMap.get(0) != 1;
     }
 
-    /**
-     * repeat rendering on the other eye
-     */
-    @Override
-    public void tickEnd(EnumSet<TickType> type, Object... tickData)
+    public void prepareFrame()
     {
-        if (engaged)
+        if (this.mc.theWorld != null && !this.mc.skipRenderWorld)
         {
-            if (this.mc.theWorld != null && !this.mc.skipRenderWorld)
+            if (reinitPending || isReinitRequired())
             {
-                if (tickData.length == 1 && tickData[0] instanceof Float)
-                {
-                    GL11.glFlush();
-                    prepareFrame(Eye.RIGHT);
-
-                    mc.entityRenderer.updateCameraAndRender((Float) tickData[0]);
-                }
+                reinit();
             }
 
-            cleanUpAfterFrames();
+            if (currentEye == Eye.LEFT ^ swapSides)
+            {
+                setupImageOne();
+            }
+            else
+            {
+                setupImageTwo();
+            }
+        }
+        else
+        {
+            GL11.glStencilFunc(GL11.GL_ALWAYS, 1, 0x01);
         }
     }
 
-    @Override
-    public EnumSet<TickType> ticks()
+    protected void setupImageOne()
     {
-        return EnumSet.of(TickType.RENDER);
+        setupImage(GL11.GL_EQUAL);
     }
 
-    @Override
-    public String getLabel()
+    protected void setupImageTwo()
     {
-        return this.getClass().getSimpleName();
+        setupImage(GL11.GL_NOTEQUAL);
     }
 
-    private void cleanUpAfterFrames()
+    protected void setupImage(int stencilFunc)
     {
-        GL11.glStencilFunc(GL11.GL_ALWAYS, 1, 0x01);
+        GL11.glDrawBuffer(GL11.GL_BACK);
+        GL11.glStencilFunc(stencilFunc, 1, 0x01);
+        // Clear the screen and depth buffer
+        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);// | GL11.GL_COLOR_BUFFER_BIT);
     }
 
-    @SideOnly(Side.CLIENT)
-    @Override
-    public void engage()
+    public void cleanUpAfterFrame()
     {
-        super.engage();
-        TickRegistry.registerTickHandler(this, Side.CLIENT);
+        if (this.mc.theWorld != null && !this.mc.skipRenderWorld)
+        {
+            if (currentEye == Eye.LEFT)
+            {
+                GL11.glFlush();
+            }
+            else
+            {
+                GL11.glStencilFunc(GL11.GL_ALWAYS, 1, 0x01);
+            }
+        }
+    }
+
+    /**
+     * 
+     * @author zsawyer
+     */
+    public static class InterlacedRenderer extends StencilingRenderer {
+        @SideOnly(Side.CLIENT)
+        public InterlacedRenderer()
+        {
+            super();
+        }
+
+        @Override
+        protected void drawStencilPattern(int width, int height)
+        {
+            GL11.glColor4f(1, 1, 1, 0);
+            // draw lines (actually using quads)
+            // for anticipating aliasing and drawing pixels at precise locations
+            // I find QUADS are easier to figure out than LINES (lines would
+            // require
+            // an offset of +0.5)
+            GL11.glBegin(GL11.GL_QUADS);
+            {
+                for (int gliY = 0; gliY <= height; gliY += 2)
+                {
+                    GL11.glVertex2f(0, gliY);
+                    GL11.glVertex2f(0, gliY + 1);
+                    GL11.glVertex2f(width, gliY + 1);
+                    GL11.glVertex2f(width, gliY);
+                }
+            }
+            GL11.glEnd();
+            DebugUtil.checkGLError();
+        }
+    }
+
+    /**
+     * 
+     * @author zsawyer
+     */
+    public static class CheckerboardRenderer extends StencilingRenderer {
+        @SideOnly(Side.CLIENT)
+        public CheckerboardRenderer()
+        {
+            super();
+        }
+
+        @Override
+        protected void drawStencilPattern(int width, int height)
+        {
+            GL11.glColor4f(1, 1, 1, 0);
+            GL11.glBegin(GL11.GL_POINTS);
+            {
+                for (int rows = 0; rows <= height; rows += 1)
+                {
+                    for (int cols = 0; cols <= width; cols += 1)
+                    {
+                        if (!(((cols % 2) == 0) ^ ((rows % 2) == 0)))
+                        {
+                            GL11.glVertex2f(cols + 0.5f, rows + 0.5f);
+                        }
+                    }
+                }
+            }
+            GL11.glEnd();
+            DebugUtil.checkGLError();
+        }
     }
 }

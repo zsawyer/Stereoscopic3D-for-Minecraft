@@ -22,25 +22,43 @@
 
 package zsawyer.mods.stereoscopic3d.renderers;
 
+import java.util.logging.Level;
+
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+
 import net.minecraftforge.common.Property;
+import zsawyer.mods.stereoscopic3d.Stereoscopic3D;
 import zsawyer.mods.stereoscopic3d.Stereoscopic3DConstants.ConfigKeys;
 import zsawyer.mods.stereoscopic3d.Stereoscopic3DConstants.Format;
+import zsawyer.mods.stereoscopic3d.renderers.ScalingRenderer.SideBySideRenderer;
+import zsawyer.mods.stereoscopic3d.renderers.ScalingRenderer.TopBottomRenderer;
+import zsawyer.mods.stereoscopic3d.renderers.StencilingRenderer.CheckerboardRenderer;
+import zsawyer.mods.stereoscopic3d.renderers.StencilingRenderer.InterlacedRenderer;
 
 /**
  * 
  * @author zsawyer
  */
+@SideOnly(Side.CLIENT)
 public class StereoscopicRendererFactory {
+    private StereoscopicRendererFactory()
+    {
+    }
+
+    @SideOnly(Side.CLIENT)
     public static StereoscopicRenderer getRenderer(Format format)
     {
         switch (format)
         {
         case Interlaced:
-            return new InterlacedStereoRenderer();
+            return new InterlacedRenderer();
         case SideBySide:
             return new SideBySideRenderer();
         case TopBottom:
             return new TopBottomRenderer();
+        case Checkerboard:
+            return new CheckerboardRenderer();
         default:
             break;
         }
@@ -48,6 +66,7 @@ public class StereoscopicRendererFactory {
         throw new RuntimeException("Renderer for format '" + format + "' is not yet implemented or registered.");
     }
 
+    @SideOnly(Side.CLIENT)
     public static StereoscopicRenderer getRenderer(Property formatFromConfig)
     {
         if (!formatFromConfig.getName().equals(ConfigKeys.format.toString()))
@@ -56,6 +75,7 @@ public class StereoscopicRendererFactory {
         }
 
         Format format = Format.valueOf(formatFromConfig.value);
+        Stereoscopic3D.LOG.log(Level.INFO, "Using " + format + " renderer.");
         return getRenderer(format);
     }
 }
