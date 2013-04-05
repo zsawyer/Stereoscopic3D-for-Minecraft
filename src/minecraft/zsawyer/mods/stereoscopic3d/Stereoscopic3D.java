@@ -51,6 +51,7 @@ import cpw.mods.fml.relauncher.SideOnly;
  */
 @Mod(modid = "Stereoscopic3D", name = "Stereoscopic3D Renderer", version = "1.0.0")
 @NetworkMod(clientSideRequired = true, serverSideRequired = false)
+@SideOnly(Side.CLIENT)
 public class Stereoscopic3D {
 
     public static Logger LOG;
@@ -88,7 +89,9 @@ public class Stereoscopic3D {
         swapSides = config.get(Configuration.CATEGORY_GENERAL, ConfigKeys.swapSides.toString(), false,
                 configComment("whether to swap the left and right image", new Boolean[] { true, false })).getBoolean(false);
 
-        config.save();
+        if (config.hasChanged()) {
+            config.save();
+        }
     }
 
     private static String configComment(String comment, Object[] availableValues)

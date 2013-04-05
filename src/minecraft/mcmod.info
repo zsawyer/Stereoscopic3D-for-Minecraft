@@ -1,0 +1,22 @@
+[
+{
+  "modid": "Stereoscopic3D",
+  "name": "Stereoscopic3D Renderer",
+  "description": "Allow stereoscopic 3D (Real3D) imaging for active and passive 3D-TVs. (published under LGPLv3)",
+  "version": "1.0.0",
+  "url": "https://github.com/zsawyer/Stereoscopic3D-for-Minecraft",
+  "updateUrl": "",
+  "authorList": [
+    "zsawyer"
+  ],
+  "credits": "zsawyer, 2013",
+  "logoFile": "",
+  "screenshots": [
+    "https://lh5.googleusercontent.com/YmRR74DQ9kcMvoM0cPPn8OIr_KU5xqrc1bkI_aefQmyX-L97x_XFiqnulKBcw0s4JM068g8iPuc", 
+    "https://lh5.googleusercontent.com/1WJEVQCMWDUqnJmuQo0Xu6yQl6DctyU5Bld1e8-u1fgIM0ZtEf1TGhSdgiysJYmOwTHlyMZJTIM"
+  ],
+  "parent":"",
+  "dependencies": [
+  ]
+}
+]

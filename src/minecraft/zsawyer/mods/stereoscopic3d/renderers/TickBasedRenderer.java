@@ -84,7 +84,15 @@ public abstract class TickBasedRenderer extends StereoscopicRenderer implements 
     @Override
     public EnumSet<TickType> ticks()
     {
-        return EnumSet.of(TickType.RENDER);
+        if (engaged)
+        {
+            return EnumSet.of(TickType.RENDER);
+        }
+        else
+        {
+            return null;
+        }
+
     }
 
     @Override
